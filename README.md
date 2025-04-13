@@ -1,6 +1,6 @@
 # Bioinformatics_Project
 
-# 🧪 Improving SERS Preprocessing and Analysis
+# 🧪 Improving Surface Enhanced Raman Spectroscopy (SERS) Preprocessing and Analysis
 
 **Bioinformatics MSc Project – University of Minho**
 
