@@ -1,0 +1,201 @@
+"""
+.py for the application of unsupervised analysis methods on the 
+
+--raw data-- of the raman spectra
+
+"""
+
+#imports for the preprocessing pipeline
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+#imports for the unsupervised methods
+from umap import UMAP
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+"""
+Handeling of the dataset
+
+"""
+
+# Load Excel file, no header row, commas as decimal points
+file_path = "C:\\Users\\UTILIZADOR\\Desktop\\Projeto\\Envi\\raw_feat.xlsx"
+df = pd.read_excel(file_path, header=None, decimal=',')
+
+# Step 1: Extract wavenumbers from first row, skip column A, exclude last 3 metadata columns
+wavenumbers = df.iloc[0, 1:-3].astype(float).values
+
+# Step 2: Extract intensity data (all rows except first, skip column A, exclude metadata)
+intensity_data = df.iloc[1:, 1:-3].astype(float).values
+
+# Step 3: Extract metadata (from last 3 columns)
+labels = df.iloc[1:, -3].values
+concentrations = df.iloc[1:, -2].values
+names = df.iloc[1:, -1].values
+
+# Step 4: Build list of spectra
+raman_spectra = []
+metadata = []
+
+for i in range(intensity_data.shape[0]):
+    y_array = intensity_data[i, :]
+    spectrum = [wavenumbers, y_array]
+    raman_spectra.append(spectrum)
+    metadata.append({
+        'label': labels[i],
+        'concentration': concentrations[i],
+        'name': names[i]
+    })
+
+
+PCA_ready_processed_spectra = np.array([spectrum[1] for spectrum in raman_spectra])
+
+
+
+"""
+PCA:
+
+Principal Component Analysis - dimensionality reduction technique 
+that allows linear projection of a reduced representation of
+the data capturing key spectral variations with pricipal components.
+
+"""
+
+# 1. Create and adjust PCA model
+n_components = 2  
+pca = PCA(n_components=n_components)
+X_pca = pca.fit_transform(PCA_ready_processed_spectra)
+
+# 2.  vizualize explained variance
+explained_variance = pca.explained_variance_ratio_
+print(f"Explained variance by {n_components} components:", explained_variance)
+
+
+# 3. 2D vizualization of the PC´s
+plt.figure(figsize=(8,6))
+for label in np.unique(labels):
+    idx = labels == label
+    plt.scatter(X_pca[idx, 0], X_pca[idx, 1], label=label, alpha=0.7)
+plt.xlabel(f"PC1 ({explained_variance[0]*100:.1f}%)")
+plt.ylabel(f"PC2 ({explained_variance[1]*100:.1f}%)")
+plt.title("PCA")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+"""
+T-SNE
+
+t-Distributed Stochastic Neighbour Embedding - dimensionality reduction technique 
+which effectively preserves relationships in high-dimensional data but 
+requires further parameter tuning
+
+n_components=2: Reduces the data to 2 dimensions.
+
+perplexity=30: A common value (adjustable based on the number of samples, ideally between 5 and 50).
+
+init='pca': Initializes with PCA (helps with stability).
+
+learning_rate='auto': Recommended starting from scikit-learn version 1.2.
+"""
+
+
+# 1. Create and adjust T-SNE model
+
+tsne = TSNE(n_components=2, perplexity=30, random_state=42, init='pca', learning_rate='auto')
+X_tsne = tsne.fit_transform(PCA_ready_processed_spectra)
+
+
+# 2. Results vizualization
+plt.figure(figsize=(8, 6))
+for label in np.unique(labels):
+    idx = labels == label
+    plt.scatter(X_tsne[idx, 0], X_tsne[idx, 1], label=label, alpha=0.7)
+plt.xlabel("t-SNE 1")
+plt.ylabel("t-SNE 2")
+plt.title("t-SNE")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+"""
+UMAP
+
+Uniform Manifold Approximation and Projection - dimensionality reduction technique 
+that maintains local and global data structure 
+while being computationally efficient.
+
+n_components=2: Number of output dimensions (2D, 3D...).
+
+n_neighbors=15: Controls the balance between local and global structure.
+
+min_dist=0.1: Controls how close points can get in the reduced space.
+
+metric='euclidean': Distance metric (can be 'cosine', 'manhattan', etc.).
+"""
+
+#Create and adjust UMAP model 
+
+umap = UMAP(n_components=2, n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=42)
+X_umap = umap.fit_transform(PCA_ready_processed_spectra)
+
+#Vizualize results 
+plt.figure(figsize=(8, 6))
+for label in np.unique(labels):
+    idx = labels == label
+    plt.scatter(X_umap[idx, 0], X_umap[idx, 1], label=label, alpha=0.7)
+plt.xlabel("UMAP 1")
+plt.ylabel("UMAP 2")
+plt.title("UMAP")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+"""
+Plot PCA, UMAP, T-SNE togheter verticaly
+"""
+
+
+# Create vertical stack of subplots (3 rows, 1 column)
+fig, axes = plt.subplots(3, 1, figsize=(8, 18))  # Width x Height
+
+# PCA plot
+for label in np.unique(labels):
+    idx = labels == label
+    axes[0].scatter(X_pca[idx, 0], X_pca[idx, 1], label=label, alpha=0.7)
+axes[0].set_title("PCA")
+axes[0].set_xlabel(f"PC1 ({explained_variance[0]*100:.1f}%)")
+axes[0].set_ylabel(f"PC2 ({explained_variance[1]*100:.1f}%)")
+axes[0].grid(True)
+
+# t-SNE plot
+for label in np.unique(labels):
+    idx = labels == label
+    axes[1].scatter(X_tsne[idx, 0], X_tsne[idx, 1], label=label, alpha=0.7)
+axes[1].set_title("t-SNE")
+axes[1].set_xlabel("t-SNE 1")
+axes[1].set_ylabel("t-SNE 2")
+axes[1].grid(True)
+
+# UMAP plot
+for label in np.unique(labels):
+    idx = labels == label
+    axes[2].scatter(X_umap[idx, 0], X_umap[idx, 1], label=label, alpha=0.7)
+axes[2].set_title("UMAP")
+axes[2].set_xlabel("UMAP 1")
+axes[2].set_ylabel("UMAP 2")
+axes[2].grid(True)
+
+# Unified legend (once, at the bottom)
+handles, labels_unique = axes[2].get_legend_handles_labels()
+fig.legend(handles, labels_unique, loc='lower center', ncol=len(np.unique(labels)))
+
+# Adjust layout
+plt.tight_layout(rect=[0, 0.05, 1, 0.97])  # reserve space for legend & title
+plt.show()
+
